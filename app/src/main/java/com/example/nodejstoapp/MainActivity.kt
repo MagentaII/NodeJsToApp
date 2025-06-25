@@ -49,24 +49,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
-@Composable
-fun AppRoot(modifier: Modifier = Modifier) {
-    var token by remember { mutableStateOf<String?>(null) }
-    var isRegistering by remember { mutableStateOf(false) }
-
-    when {
-        token != null -> {
-            NoteListScreen(token = token!!, onLogout = { token = null }, modifier = modifier)
-        }
-        isRegistering -> {
-            RegisterScreen(onBackToLogin = { isRegistering = false }, modifier = modifier)
-        }
-        else -> {
-            LoginScreen(
-                onLoginSuccess = { token = it },
-                onGoToRegister = { isRegistering = true },
-                modifier = modifier)
-        }
-    }
-}

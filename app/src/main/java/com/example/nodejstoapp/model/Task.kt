@@ -2,11 +2,10 @@ package com.example.nodejstoapp.model
 
 import com.google.gson.annotations.SerializedName
 
-data class Note(
+data class Task(
     @SerializedName("_id")
     val id: String,
-    val userId: String,
     val title: String,
-    val content: String,
+    val done: Boolean,
     val createdAt: String,
 )

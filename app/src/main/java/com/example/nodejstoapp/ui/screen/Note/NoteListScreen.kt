@@ -1,14 +1,13 @@
 package com.example.nodejstoapp.ui.screen.Note
 
 import android.util.Log
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -23,7 +22,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,7 +31,6 @@ import com.example.nodejstoapp.network.ApiClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.nio.file.WatchEvent
 
 @Composable
 fun NoteListScreen(token: String, onLogout: () -> Unit, modifier: Modifier = Modifier) {
@@ -42,10 +39,15 @@ fun NoteListScreen(token: String, onLogout: () -> Unit, modifier: Modifier = Mod
     var content by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
+    var editingNoteId by remember { mutableStateOf<String?>(null) }
+    var editTitle by remember { mutableStateOf("") }
+    var editContent by remember { mutableStateOf("") }
+
     // 載入筆記
     LaunchedEffect(Unit) {
         try {
             notes = ApiClient.api.getNotes("Bearer $token")
+            Log.d("NoteListScreen", "Notes loaded: $notes")
         } catch (e: Exception) {
             error = "載入筆記失敗: ${e.message}"
         }
@@ -103,36 +105,111 @@ fun NoteListScreen(token: String, onLogout: () -> Unit, modifier: Modifier = Mod
 
         LazyColumn {
             items(notes) { note ->
-                Log.d("NoteListScreen", "Note ID: ${note.id}")
-                Log.d("NoteListScreen", "Note Title: ${note.title}")
-                Log.d("NoteListScreen", "Note Content: ${note.content}")
-                Log.d("NoteListScreen", "Note Created At: ${note.createdAt}")
-                Card(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(4.dp)) {
+                Card(modifier = Modifier.fillMaxWidth().padding(4.dp)) {
                     Column(modifier = Modifier.padding(8.dp)) {
-                        Text("📝 ${note.title}", style = MaterialTheme.typography.titleMedium)
-                        if (note.content.isNotEmpty()) {
-                            Text(note.content)
-                        }
-                        Text(note.createdAt, style = MaterialTheme.typography.labelSmall)
-
-                        TextButton(onClick = {
-                            CoroutineScope(Dispatchers.IO).launch {
-                                try {
-                                    ApiClient.api.deleteNote("Bearer $token", note.id)
-                                    notes = notes.filterNot { it.id == note.id }
-                                } catch (e: Exception) {
-                                    error = "刪除失敗: ${e.message}"
+                        if (editingNoteId == note.id) {
+                            // 編輯模式
+                            OutlinedTextField(
+                                value = editTitle,
+                                onValueChange = { editTitle = it },
+                                label = { Text("標題") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            OutlinedTextField(
+                                value = editContent,
+                                onValueChange = { editContent = it },
+                                label = { Text("內容") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Row {
+                                Button(onClick = {
+                                    Log.d("NoteListScreen", "Note id: ${note.id}")
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        try {
+                                            val updated = ApiClient.api.updateNote(
+                                                "Bearer $token",
+                                                note.id,
+                                                mapOf("title" to editTitle, "content" to editContent)
+                                            )
+                                            notes = notes.map {
+                                                if (it.id == note.id) updated else it
+                                            }
+                                            editingNoteId = null
+                                        } catch (e: Exception) {
+                                            Log.e("EDIT_FAIL", e.message ?: "")
+                                        }
+                                    }
+                                }) {
+                                    Text("儲存")
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Button(onClick = { editingNoteId = null }) {
+                                    Text("取消")
                                 }
                             }
-                        }) {
-                            Text("刪除", color = Color.Red)
+                        } else {
+                            // 顯示模式
+                            Text("📝 ${note.title}", style = MaterialTheme.typography.titleMedium)
+                            if (note.content.isNotEmpty()) {
+                                Text(note.content)
+                            }
+                            Text(note.createdAt, style = MaterialTheme.typography.labelSmall)
+
+                            Row {
+                                TextButton(onClick = {
+                                    editTitle = note.title
+                                    editContent = note.content
+                                    editingNoteId = note.id
+                                }) {
+                                    Text("編輯")
+                                }
+                                TextButton(onClick = {
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        try {
+                                            ApiClient.api.deleteNote("Bearer $token", note.id)
+                                            notes = notes.filterNot { it.id == note.id }
+                                        } catch (e: Exception) {
+                                            Log.e("DELETE_FAIL", e.message ?: "")
+                                        }
+                                    }
+                                }) {
+                                    Text("刪除", color = Color.Red)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+
+//        LazyColumn {
+//            items(notes) { note ->
+//                Card(modifier = Modifier
+//                    .fillMaxWidth()
+//                    .padding(4.dp)) {
+//                    Column(modifier = Modifier.padding(8.dp)) {
+//                        Text("📝 ${note.title}", style = MaterialTheme.typography.titleMedium)
+//                        if (note.content.isNotEmpty()) {
+//                            Text(note.content)
+//                        }
+//                        Text(note.createdAt, style = MaterialTheme.typography.labelSmall)
+//
+//                        TextButton(onClick = {
+//                            CoroutineScope(Dispatchers.IO).launch {
+//                                try {
+//                                    ApiClient.api.deleteNote("Bearer $token", note.id)
+//                                    notes = notes.filterNot { it.id == note.id }
+//                                } catch (e: Exception) {
+//                                    error = "刪除失敗: ${e.message}"
+//                                }
+//                            }
+//                        }) {
+//                            Text("刪除", color = Color.Red)
+//                        }
+//                    }
+//                }
+//            }
+//        }
 
         error?.let {
             Text(it, color = Color.Red)
