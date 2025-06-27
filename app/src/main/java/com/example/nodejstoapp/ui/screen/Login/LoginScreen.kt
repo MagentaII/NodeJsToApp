@@ -1,10 +1,12 @@
 package com.example.nodejstoapp.ui.screen.Login
 
+import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,55 +26,89 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (String) -> Unit,
+    onLoginSuccess: (String, String) -> Unit,
     onGoToRegister: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
-            .padding(16.dp)
+            .padding(24.dp)
             .fillMaxSize()
-        ) {
+    ) {
+        Text(text = "登入帳號", style = MaterialTheme.typography.headlineSmall)
+
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
             label = { Text("Email") },
-            isError = error != null,
-            modifier = Modifier.fillMaxWidth()
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
         )
+
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
-            isError = error != null,
-            modifier = Modifier.fillMaxWidth()
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
         )
+
         Button(
             onClick = {
+                if (email.isBlank() || password.isBlank()) {
+                    error = "Email 與密碼不可為空"
+                    return@Button
+                }
+
+                isLoading = true
+                error = null
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        val body = mapOf("email" to email, "password" to password)
-                        val response = ApiClient.api.login(body)
-                        onLoginSuccess(response.token)
+                        val response = ApiClient.api.login(
+                            mapOf("email" to email, "password" to password)
+                        )
+                        Log.d("LoginScreen", "accessToken: ${response.accessToken}")
+                        Log.d("LoginScreen", "refreshToken: ${response.refreshToken}")
+                        onLoginSuccess(response.accessToken, response.refreshToken)
                     } catch (e: Exception) {
-                        error = "Login failed: ${e.message}"
+                        error = "登入失敗：${e.message}"
+                    } finally {
+                        isLoading = false
                     }
                 }
-            }, modifier = Modifier.padding(top = 16.dp)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
         ) {
-            Text("Login")
+            Text(if (isLoading) "登入中..." else "登入")
         }
 
-        TextButton(onClick = onGoToRegister) {
-            Text("no account? register")
+        TextButton(
+            onClick = onGoToRegister,
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .fillMaxWidth()
+        ) {
+            Text("尚未註冊？點此註冊")
         }
 
         error?.let {
-            Text(it, color = Color.Red)
+            Text(
+                text = it,
+                color = Color.Red,
+                modifier = Modifier
+                    .padding(top = 12.dp)
+                    .fillMaxWidth()
+            )
         }
     }
 }
@@ -81,5 +117,8 @@ fun LoginScreen(
 @Preview(showSystemUi = true, showBackground = true)
 @Composable
 private fun LoginScreenPreview() {
-    LoginScreen(onLoginSuccess = {}, onGoToRegister = {})
+    LoginScreen(
+        onLoginSuccess = { _, _ -> },
+        onGoToRegister = {}
+    )
 }

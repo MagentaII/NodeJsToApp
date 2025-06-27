@@ -32,7 +32,7 @@ fun UserListScreen(token: String, onLogout: () -> Unit) {
 
     LaunchedEffect(Unit) {
         try {
-            val result = ApiClient.api.getUsers("Bearer $token")
+            val result = ApiClient.api.getUsers()
             users = result
         } catch (e: Exception) {
             error = "取得使用者失敗: ${e.message}"

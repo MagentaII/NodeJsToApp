@@ -1,6 +1,5 @@
 package com.example.nodejstoapp.ui.screen.Note
 
-import android.util.Log
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,10 +32,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Composable
-fun NoteListScreen(token: String, onLogout: () -> Unit, modifier: Modifier = Modifier) {
+fun NoteListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
     var notes by remember { mutableStateOf<List<Note>>(emptyList()) }
-    var title by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
+    var newTitle by remember { mutableStateOf("") }
+    var newContent by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
     var editingNoteId by remember { mutableStateOf<String?>(null) }
@@ -46,15 +45,14 @@ fun NoteListScreen(token: String, onLogout: () -> Unit, modifier: Modifier = Mod
     // 載入筆記
     LaunchedEffect(Unit) {
         try {
-            notes = ApiClient.api.getNotes("Bearer $token")
-            Log.d("NoteListScreen", "Notes loaded: $notes")
+            notes = ApiClient.api.getNotes()
         } catch (e: Exception) {
             error = "載入筆記失敗: ${e.message}"
         }
     }
 
     Column(modifier = modifier.padding(16.dp)) {
-        Row {
+        Row(modifier = Modifier.fillMaxWidth()) {
             Button(onClick = onLogout) {
                 Text("登出")
             }
@@ -62,157 +60,149 @@ fun NoteListScreen(token: String, onLogout: () -> Unit, modifier: Modifier = Mod
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        Text("新增筆記", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
-            value = title,
-            onValueChange = { title = it },
+            value = newTitle,
+            onValueChange = { newTitle = it },
             label = { Text("標題") },
             modifier = Modifier.fillMaxWidth()
         )
-
         OutlinedTextField(
-            value = content,
-            onValueChange = { content = it },
+            value = newContent,
+            onValueChange = { newContent = it },
             label = { Text("內容") },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp)
         )
-
         Button(
             onClick = {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         val newNote = ApiClient.api.createNote(
-                            "Bearer $token",
-                            mapOf("title" to title, "content" to content)
+                            mapOf("title" to newTitle, "content" to newContent)
                         )
-                        Log.d("NoteListScreen", "New note created, Title: ${newNote.title}")
-                        Log.d("NoteListScreen", "New note created, Content: ${newNote.content}")
                         notes = listOf(newNote) + notes
-                        title = ""
-                        content = ""
+                        newTitle = ""
+                        newContent = ""
                     } catch (e: Exception) {
                         error = "新增失敗: ${e.message}"
                     }
                 }
             },
-            modifier = Modifier.padding(top = 8.dp)
+            modifier = Modifier.padding(vertical = 8.dp)
         ) {
             Text("新增筆記")
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+        Text("筆記列表", style = MaterialTheme.typography.titleMedium)
 
         LazyColumn {
             items(notes) { note ->
-                Card(modifier = Modifier.fillMaxWidth().padding(4.dp)) {
-                    Column(modifier = Modifier.padding(8.dp)) {
-                        if (editingNoteId == note.id) {
-                            // 編輯模式
-                            OutlinedTextField(
-                                value = editTitle,
-                                onValueChange = { editTitle = it },
-                                label = { Text("標題") },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            OutlinedTextField(
-                                value = editContent,
-                                onValueChange = { editContent = it },
-                                label = { Text("內容") },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            Row {
-                                Button(onClick = {
-                                    Log.d("NoteListScreen", "Note id: ${note.id}")
-                                    CoroutineScope(Dispatchers.IO).launch {
-                                        try {
-                                            val updated = ApiClient.api.updateNote(
-                                                "Bearer $token",
-                                                note.id,
-                                                mapOf("title" to editTitle, "content" to editContent)
-                                            )
-                                            notes = notes.map {
-                                                if (it.id == note.id) updated else it
-                                            }
-                                            editingNoteId = null
-                                        } catch (e: Exception) {
-                                            Log.e("EDIT_FAIL", e.message ?: "")
-                                        }
-                                    }
-                                }) {
-                                    Text("儲存")
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(onClick = { editingNoteId = null }) {
-                                    Text("取消")
-                                }
+                NoteCard(
+                    note = note,
+                    isEditing = (editingNoteId == note.id),
+                    editTitle = editTitle,
+                    editContent = editContent,
+                    onEditClick = {
+                        editingNoteId = note.id
+                        editTitle = note.title
+                        editContent = note.content
+                    },
+                    onCancelEdit = { editingNoteId = null },
+                    onSaveEdit = { updatedTitle, updatedContent ->
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                val updated = ApiClient.api.updateNote(note.id,
+                                    mapOf("title" to updatedTitle, "content" to updatedContent)
+                                )
+                                notes = notes.map { if (it.id == note.id) updated else it }
+                                editingNoteId = null
+                            } catch (e: Exception) {
+                                error = "更新失敗: ${e.message}"
                             }
-                        } else {
-                            // 顯示模式
-                            Text("📝 ${note.title}", style = MaterialTheme.typography.titleMedium)
-                            if (note.content.isNotEmpty()) {
-                                Text(note.content)
-                            }
-                            Text(note.createdAt, style = MaterialTheme.typography.labelSmall)
-
-                            Row {
-                                TextButton(onClick = {
-                                    editTitle = note.title
-                                    editContent = note.content
-                                    editingNoteId = note.id
-                                }) {
-                                    Text("編輯")
-                                }
-                                TextButton(onClick = {
-                                    CoroutineScope(Dispatchers.IO).launch {
-                                        try {
-                                            ApiClient.api.deleteNote("Bearer $token", note.id)
-                                            notes = notes.filterNot { it.id == note.id }
-                                        } catch (e: Exception) {
-                                            Log.e("DELETE_FAIL", e.message ?: "")
-                                        }
-                                    }
-                                }) {
-                                    Text("刪除", color = Color.Red)
-                                }
+                        }
+                    },
+                    onDeleteClick = {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                ApiClient.api.deleteNote(note.id)
+                                notes = notes.filterNot { it.id == note.id }
+                            } catch (e: Exception) {
+                                error = "刪除失敗: ${e.message}"
                             }
                         }
                     }
-                }
+                )
             }
         }
 
-//        LazyColumn {
-//            items(notes) { note ->
-//                Card(modifier = Modifier
-//                    .fillMaxWidth()
-//                    .padding(4.dp)) {
-//                    Column(modifier = Modifier.padding(8.dp)) {
-//                        Text("📝 ${note.title}", style = MaterialTheme.typography.titleMedium)
-//                        if (note.content.isNotEmpty()) {
-//                            Text(note.content)
-//                        }
-//                        Text(note.createdAt, style = MaterialTheme.typography.labelSmall)
-//
-//                        TextButton(onClick = {
-//                            CoroutineScope(Dispatchers.IO).launch {
-//                                try {
-//                                    ApiClient.api.deleteNote("Bearer $token", note.id)
-//                                    notes = notes.filterNot { it.id == note.id }
-//                                } catch (e: Exception) {
-//                                    error = "刪除失敗: ${e.message}"
-//                                }
-//                            }
-//                        }) {
-//                            Text("刪除", color = Color.Red)
-//                        }
-//                    }
-//                }
-//            }
-//        }
-
         error?.let {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(it, color = Color.Red)
+        }
+    }
+}
+
+@Composable
+fun NoteCard(
+    note: Note,
+    isEditing: Boolean,
+    editTitle: String,
+    editContent: String,
+    onEditClick: () -> Unit,
+    onCancelEdit: () -> Unit,
+    onSaveEdit: (String, String) -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    var localTitle by remember { mutableStateOf(editTitle) }
+    var localContent by remember { mutableStateOf(editContent) }
+
+    Card(modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 4.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            if (isEditing) {
+                OutlinedTextField(
+                    value = localTitle,
+                    onValueChange = { localTitle = it },
+                    label = { Text("標題") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = localContent,
+                    onValueChange = { localContent = it },
+                    label = { Text("內容") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                )
+                Row(modifier = Modifier.padding(top = 8.dp)) {
+                    Button(onClick = { onSaveEdit(localTitle, localContent) }) {
+                        Text("儲存")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = onCancelEdit) {
+                        Text("取消")
+                    }
+                }
+            } else {
+                Text("📝 ${note.title}", style = MaterialTheme.typography.titleMedium)
+                if (note.content.isNotEmpty()) {
+                    Text(note.content, modifier = Modifier.padding(top = 4.dp))
+                }
+                Text(note.createdAt, style = MaterialTheme.typography.labelSmall)
+
+                Row(modifier = Modifier.padding(top = 8.dp)) {
+                    TextButton(onClick = onEditClick) {
+                        Text("編輯")
+                    }
+                    TextButton(onClick = onDeleteClick) {
+                        Text("刪除", color = Color.Red)
+                    }
+                }
+            }
         }
     }
 }
@@ -220,5 +210,5 @@ fun NoteListScreen(token: String, onLogout: () -> Unit, modifier: Modifier = Mod
 @Preview(showSystemUi = true, showBackground = true)
 @Composable
 private fun NoteListScreenPreview() {
-    NoteListScreen(token = "", onLogout = {})
+    NoteListScreen(onLogout = {})
 }

@@ -7,5 +7,6 @@ data class Task(
     val id: String,
     val title: String,
     val done: Boolean,
+    val dueDate: String?,
     val createdAt: String,
 )

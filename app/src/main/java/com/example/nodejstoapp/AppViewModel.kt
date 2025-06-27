@@ -14,10 +14,12 @@ class AppViewModel: ViewModel() {
                 val loginBody = mapOf("email" to "test@example.com", "password" to "1234567890")
                 val response = ApiClient.api.login(loginBody)
 
-                val token = response.token
-                Log.d("TOKEN", token)
+                val accessToken = response.accessToken
+                val refreshToken = response.refreshToken
+                Log.d("ACCESS_TOKEN", accessToken)
+                Log.d("REFRESH_TOKEN", refreshToken)
 
-                val users = ApiClient.api.getUsers("Bearer $token")
+                val users = ApiClient.api.getUsers()
                 Log.d("USERS", users.toString())
 
             } catch (e: Exception) {

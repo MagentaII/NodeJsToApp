@@ -1,12 +1,17 @@
 package com.example.nodejstoapp
 
+import android.content.Context
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,9 +20,6 @@ import androidx.compose.ui.Modifier
 import com.example.nodejstoapp.ui.screen.Login.LoginScreen
 import com.example.nodejstoapp.ui.screen.Note.NoteListScreen
 import com.example.nodejstoapp.ui.screen.Register.RegisterScreen
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Text
 import com.example.nodejstoapp.ui.screen.Task.TaskListScreen
 
 enum class Screen {
@@ -25,10 +27,16 @@ enum class Screen {
 }
 
 @Composable
-fun AppRoot(modifier: Modifier = Modifier) {
-    var token by remember { mutableStateOf<String?>(null) }
+fun AppRoot(context: Context, modifier: Modifier = Modifier) {
+    var accessToken by remember { mutableStateOf<String?>(null) }
+    var refreshToken by remember { mutableStateOf<String?>(null) }
     var currentScreen by remember { mutableStateOf(Screen.NOTES) }
     var isRegistering by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        accessToken = SessionManager.getAccessToken(context)
+        refreshToken = SessionManager.getRefreshToken(context)
+    }
 
     when {
         isRegistering -> {
@@ -38,9 +46,13 @@ fun AppRoot(modifier: Modifier = Modifier) {
             )
         }
 
-        token == null -> {
+        accessToken.isNullOrEmpty() -> {
             LoginScreen(
-                onLoginSuccess = { token = it },
+                onLoginSuccess = { access, refresh ->
+                    accessToken = access
+                    refreshToken = refresh
+                    SessionManager.saveTokens(context, access, refresh )
+                                 },
                 onGoToRegister = { isRegistering = true },
                 modifier = modifier
             )
@@ -67,33 +79,24 @@ fun AppRoot(modifier: Modifier = Modifier) {
             ) { innerPadding ->
                 when (currentScreen) {
                     Screen.NOTES -> NoteListScreen(
-                        token = token!!,
-                        onLogout = { token = null },
+                        onLogout = {
+                            accessToken = null
+                            refreshToken = null
+                            SessionManager.clearTokens(context)
+                                   },
                         modifier = modifier.padding(innerPadding)
                     )
 
                     Screen.TASKS -> TaskListScreen(
-                        token = token!!,
-                        onLogout = { token = null },
+                        onLogout = {
+                            accessToken = null
+                            refreshToken = null
+                            SessionManager.clearTokens(context)
+                                   },
                         modifier = modifier.padding(innerPadding)
                     )
                 }
             }
         }
     }
-
-//    when {
-//        token != null -> {
-//            NoteListScreen(token = token!!, onLogout = { token = null }, modifier = modifier)
-//        }
-//        isRegistering -> {
-//            RegisterScreen(onBackToLogin = { isRegistering = false }, modifier = modifier)
-//        }
-//        else -> {
-//            LoginScreen(
-//                onLoginSuccess = { token = it },
-//                onGoToRegister = { isRegistering = true },
-//                modifier = modifier)
-//        }
-//    }
 }
