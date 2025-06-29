@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,18 +26,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.nodejstoapp.model.Note
 import com.example.nodejstoapp.network.ApiClient
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @Composable
-fun NoteListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
-    var notes by remember { mutableStateOf<List<Note>>(emptyList()) }
+fun NoteListScreen(
+    onLogout: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val viewModel = remember {
+        NoteViewModel(NoteRepository(ApiClient.api))
+    }
+
+    val notes by viewModel.notes.collectAsState()
+    val error by viewModel.error.collectAsState()
+
     var newTitle by remember { mutableStateOf("") }
     var newContent by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
 
     var editingNoteId by remember { mutableStateOf<String?>(null) }
     var editTitle by remember { mutableStateOf("") }
@@ -44,11 +51,7 @@ fun NoteListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
 
     // 載入筆記
     LaunchedEffect(Unit) {
-        try {
-            notes = ApiClient.api.getNotes()
-        } catch (e: Exception) {
-            error = "載入筆記失敗: ${e.message}"
-        }
+        viewModel.loadNotes()
     }
 
     Column(modifier = modifier.padding(16.dp)) {
@@ -77,18 +80,9 @@ fun NoteListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
         )
         Button(
             onClick = {
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val newNote = ApiClient.api.createNote(
-                            mapOf("title" to newTitle, "content" to newContent)
-                        )
-                        notes = listOf(newNote) + notes
-                        newTitle = ""
-                        newContent = ""
-                    } catch (e: Exception) {
-                        error = "新增失敗: ${e.message}"
-                    }
-                }
+                viewModel.addNote(newTitle, newContent)
+                newTitle = ""
+                newContent = ""
             },
             modifier = Modifier.padding(vertical = 8.dp)
         ) {
@@ -112,27 +106,11 @@ fun NoteListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
                     },
                     onCancelEdit = { editingNoteId = null },
                     onSaveEdit = { updatedTitle, updatedContent ->
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                val updated = ApiClient.api.updateNote(note.id,
-                                    mapOf("title" to updatedTitle, "content" to updatedContent)
-                                )
-                                notes = notes.map { if (it.id == note.id) updated else it }
-                                editingNoteId = null
-                            } catch (e: Exception) {
-                                error = "更新失敗: ${e.message}"
-                            }
-                        }
+                        viewModel.updateNote(note.id, updatedTitle, updatedContent)
+                        editingNoteId = null
                     },
                     onDeleteClick = {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                ApiClient.api.deleteNote(note.id)
-                                notes = notes.filterNot { it.id == note.id }
-                            } catch (e: Exception) {
-                                error = "刪除失敗: ${e.message}"
-                            }
-                        }
+                        viewModel.deleteNote(note.id)
                     }
                 )
             }

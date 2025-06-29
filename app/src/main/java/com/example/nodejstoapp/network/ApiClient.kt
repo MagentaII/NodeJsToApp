@@ -1,7 +1,7 @@
 package com.example.nodejstoapp.network
 
 import android.content.Context
-import com.example.nodejstoapp.AuthInterceptor
+import com.example.nodejstoapp.network.AuthInterceptor
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory

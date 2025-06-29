@@ -2,7 +2,6 @@ package com.example.nodejstoapp.ui.screen.Task
 
 import android.app.DatePickerDialog
 import android.icu.util.Calendar
-import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,16 +42,21 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.nodejstoapp.model.Task
-import com.example.nodejstoapp.model.TaskUpdateRequest
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.nodejstoapp.network.ApiClient
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 @Composable
-fun TaskListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
-    var tasks by remember { mutableStateOf(listOf<Task>()) }
+fun TaskListScreen(
+    onLogout: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val viewModel = remember {
+        TaskViewModel(TaskRepository(ApiClient.api))
+    }
+
+    val tasks by viewModel.tasks.collectAsState()
+    val error by viewModel.error.collectAsState()
+
     var newTaskTitle by remember { mutableStateOf("") }
     var dueDateText by remember { mutableStateOf("") }
 
@@ -71,11 +76,7 @@ fun TaskListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
     )
 
     LaunchedEffect(Unit) {
-        try {
-            tasks = ApiClient.api.getTasks()
-        } catch (e: Exception) {
-            Log.e("TaskListScreen", "Error loading tasks", e)
-        }
+        viewModel.loadTasks()
     }
 
     Column(
@@ -115,18 +116,9 @@ fun TaskListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
             Button(
                 onClick = {
                     if (newTaskTitle.isNotBlank()) {
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                val newTask = ApiClient.api.createTask(
-                                    mapOf("title" to newTaskTitle, "dueDate" to dueDateText)
-                                )
-                                tasks = listOf(newTask) + tasks
-                                newTaskTitle = ""
-                                dueDateText = ""
-                            } catch (e: Exception) {
-                                Log.e("TASK_CREATE", e.message ?: "")
-                            }
-                        }
+                        viewModel.createTask(newTaskTitle, dueDateText)
+                        newTaskTitle = ""
+                        dueDateText = ""
                     }
                 },
                 modifier = Modifier.align(Alignment.End)
@@ -155,17 +147,7 @@ fun TaskListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
                         Checkbox(
                             checked = task.done,
                             onCheckedChange = { checked ->
-                                CoroutineScope(Dispatchers.IO).launch {
-                                    try {
-                                        val updated = ApiClient.api.updateTask(
-                                            task.id,
-                                            TaskUpdateRequest(title = task.title, done = checked)
-                                        )
-                                        tasks = tasks.map { if (it.id == task.id) updated else it }
-                                    } catch (e: Exception) {
-                                        Log.e("TASK_UPDATE", e.message ?: "")
-                                    }
-                                }
+                                viewModel.updateTask(task.id, task.title, checked)
                             }
                         )
 
@@ -180,18 +162,8 @@ fun TaskListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
                                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                                     keyboardActions = KeyboardActions(
                                         onDone = {
-                                            CoroutineScope(Dispatchers.IO).launch {
-                                                try {
-                                                    val updated = ApiClient.api.updateTask(
-                                                         task.id,
-                                                        TaskUpdateRequest(title = editingText, done = task.done)
-                                                    )
-                                                    tasks = tasks.map { if (it.id == task.id) updated else it }
-                                                    editingTaskId = null
-                                                } catch (e: Exception) {
-                                                    Log.e("TASK_EDIT_FAIL", e.message ?: "")
-                                                }
-                                            }
+                                            viewModel.updateTask(task.id, editingText, task.done)
+                                            editingTaskId = null
                                         }
                                     )
                                 )
@@ -219,14 +191,7 @@ fun TaskListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
                         }
 
                         IconButton(onClick = {
-                            CoroutineScope(Dispatchers.IO).launch {
-                                try {
-                                    ApiClient.api.deleteTask( task.id)
-                                    tasks = tasks.filterNot { it.id == task.id }
-                                } catch (e: Exception) {
-                                    Log.e("TASK_DELETE", e.message ?: "")
-                                }
-                            }
+                            viewModel.deleteTask(task.id)
                         }) {
                             Icon(Icons.Default.Delete, contentDescription = "刪除")
                         }
@@ -239,6 +204,10 @@ fun TaskListScreen(onLogout: () -> Unit, modifier: Modifier = Modifier) {
                     }
                 }
             }
+        }
+        error?.let {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(it, color = Color.Red)
         }
     }
 }
