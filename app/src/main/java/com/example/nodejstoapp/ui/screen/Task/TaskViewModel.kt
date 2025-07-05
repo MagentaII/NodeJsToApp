@@ -27,7 +27,7 @@ class TaskViewModel(private val repository: TaskRepository): ViewModel() {
         }
     }
 
-    fun createTask(title: String, dueDate: String) {
+    fun createTask(title: String, dueDate: String?) {
         viewModelScope.launch {
             try {
                 val newTask = repository.createTask(title, dueDate)

@@ -51,7 +51,7 @@ fun TaskListScreen(
     modifier: Modifier = Modifier
 ) {
     val viewModel = remember {
-        TaskViewModel(TaskRepository(ApiClient.api))
+        TaskViewModel(TaskRepositoryImpl(ApiClient.api))
     }
 
     val tasks by viewModel.tasks.collectAsState()

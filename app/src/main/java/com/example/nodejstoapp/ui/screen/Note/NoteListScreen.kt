@@ -36,7 +36,7 @@ fun NoteListScreen(
     modifier: Modifier = Modifier,
 ) {
     val viewModel = remember {
-        NoteViewModel(NoteRepository(ApiClient.api))
+        NoteViewModel(NoteRepositoryImpl(ApiClient.api))
     }
 
     val notes by viewModel.notes.collectAsState()

@@ -33,13 +33,13 @@ interface ApiService {
     suspend fun updateNote(@Path("id") noteId: String, @Body note: Map<String, String>): Note
 
     @DELETE("/api/notes/{id}")
-    suspend fun deleteNote(@Path("id") noteId: String): ResponseBody
+    suspend fun deleteNote(@Path("id") noteId: String)
 
     @GET("/api/tasks")
     suspend fun getTasks(): List<Task>
 
     @POST("/api/tasks")
-    suspend fun createTask(@Body task: Map<String, String>): Task
+    suspend fun createTask(@Body task: Map<String, String?>): Task
 
     @PUT("/api/tasks/{id}")
     suspend fun updateTask(@Path("id") taskId: String, @Body task: TaskUpdateRequest): Task
