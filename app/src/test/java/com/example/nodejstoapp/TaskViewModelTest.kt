@@ -2,13 +2,10 @@ package com.example.nodejstoapp
 
 import com.example.nodejstoapp.ui.screen.Task.TaskViewModel
 import junit.framework.TestCase.assertTrue
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
-import kotlin.collections.first
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 
